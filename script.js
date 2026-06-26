@@ -108,6 +108,14 @@ function renderCal() {
 
     days.appendChild(b);
   }
+
+  const totalCells = start + last;
+  const trailing = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+  for (let i = 0; i < trailing; i++) {
+    const e = document.createElement('div');
+    e.className = 'day day-empty';
+    days.appendChild(e);
+  }
 }
 
 function renderTimes() {
