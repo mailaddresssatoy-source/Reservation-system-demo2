@@ -49,7 +49,7 @@ async function loadAvailability() {
   try {
     const start = `${state.y}-${String(state.m + 1).padStart(2, '0')}-01`;
     const type = encodeURIComponent(state.type || '来店予約');
-    const url = `${GAS_URL}?start=${start}&days=14&type=${type}`;
+    const url = `${GAS_URL}?start=${start}&days=31&type=${type}`;
 
     $('monthLabel').textContent = '読み込み中...';
     $('days').innerHTML = '';
