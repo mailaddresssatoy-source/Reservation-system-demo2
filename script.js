@@ -1,4 +1,5 @@
 const LIFF_ID = '2010522633-RyI51ikg';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzvodEQj_qt8Li4PCrIO-phnJPnM3N4fSKSHx4pS2uMw3RtEKTS4KXZsFBw7U0pFyN62A/exec';
 
 const availability = {
   '2026-07-01': ['11:00', '13:00', '16:00'],
@@ -222,7 +223,8 @@ function fillConfirm() {
 
 $('edit').onclick = () => show('s2');
 
-$('reserve').onclick = () => {
+$('reserve').onclick = async () => {
+
   show('loading');
 
   const steps = [
@@ -233,18 +235,52 @@ $('reserve').onclick = () => {
 
   $('loadingText').textContent = steps[0];
 
-  setTimeout(() => {
-    $('loadingText').textContent = steps[1];
-  }, 1200);
+  await new Promise(r => setTimeout(r, 1000));
 
-  setTimeout(() => {
+  $('loadingText').textContent = steps[1];
+
+  const reservation = {
+    type: state.type,
+    date: state.date,
+    time: state.time,
+    name: $('name').value.trim(),
+    tel: $('tel').value.trim(),
+    address: $('addr').value.trim(),
+    memo: $('memo').value.trim()
+  };
+
+  try {
+
+    const response = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify(reservation)
+    });
+
+    const result = await response.json();
+
+    if (!result.success) {
+      alert(result.message);
+      show('s2');
+      return;
+    }
+
     $('loadingText').textContent = steps[2];
-  }, 2400);
 
-  setTimeout(() => {
+    await new Promise(r => setTimeout(r, 1000));
+
     fillDone();
     show('s4');
-  }, 3800);
+
+  } catch (e) {
+
+    console.error(e);
+
+    alert('予約登録に失敗しました。');
+
+    show('s2');
+
+  }
+
 };
 
 function fillDone() {
