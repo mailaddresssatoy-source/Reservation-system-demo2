@@ -1,39 +1,7 @@
 const LIFF_ID = '2010522633-RyI51ikg';
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzvodEQj_qt8Li4PCrIO-phnJPnM3N4fSKSHx4pS2uMw3RtEKTS4KXZsFBw7U0pFyN62A/exec';
 
-const availability = {
-  '2026-07-01': ['11:00', '13:00', '16:00'],
-  '2026-07-02': ['11:00'],
-  '2026-07-03': [],
-  '2026-07-04': ['13:00', '15:00'],
-  '2026-07-05': ['11:00', '14:00', '16:00'],
-  '2026-07-06': ['11:00', '13:00'],
-  '2026-07-07': [],
-  '2026-07-08': ['11:00', '14:00'],
-  '2026-07-09': ['13:00', '15:00', '16:00'],
-  '2026-07-10': ['11:00'],
-  '2026-07-11': ['11:00', '13:00', '14:00'],
-  '2026-07-12': [],
-  '2026-07-13': ['11:00', '13:00'],
-  '2026-07-14': [],
-  '2026-07-15': ['11:00', '14:00', '16:00'],
-  '2026-07-16': ['13:00'],
-  '2026-07-17': ['11:00', '15:00'],
-  '2026-07-18': ['11:00', '13:00', '16:00'],
-  '2026-07-19': [],
-  '2026-07-20': ['11:00', '14:00'],
-  '2026-07-21': [],
-  '2026-07-22': ['13:00', '15:00'],
-  '2026-07-23': ['11:00', '14:00', '16:00'],
-  '2026-07-24': [],
-  '2026-07-25': ['11:00'],
-  '2026-07-26': ['13:00', '15:00'],
-  '2026-07-27': ['11:00', '13:00', '14:00'],
-  '2026-07-28': [],
-  '2026-07-29': ['11:00', '16:00'],
-  '2026-07-30': ['13:00', '15:00'],
-  '2026-07-31': ['11:00', '14:00']
-};
+let availability = {};
 
 let state = {
   type: '',
@@ -58,10 +26,8 @@ function key(y, m, d) {
 
 function fmt(k) {
   if (!k) return '未選択';
-
   const d = new Date(k + 'T00:00:00');
   const weeks = ['日', '月', '火', '水', '木', '金', '土'];
-
   return `${d.getMonth() + 1}月${d.getDate()}日（${weeks[d.getDay()]}）`;
 }
 
@@ -79,10 +45,28 @@ function stat(k) {
   return { c: 'day-ok', l: '<i class="bi bi-circle"></i>' };
 }
 
+async function loadAvailability() {
+  try {
+    const start = `${state.y}-${String(state.m + 1).padStart(2, '0')}-01`;
+    const type = encodeURIComponent(state.type || '来店予約');
+    const url = `${GAS_URL}?start=${start}&days=31&type=${type}`;
+
+    $('monthLabel').textContent = '読み込み中...';
+    $('days').innerHTML = '';
+
+    const response = await fetch(url);
+    availability = await response.json();
+
+    renderCal();
+  } catch (error) {
+    console.error(error);
+    alert('空き状況の取得に失敗しました。');
+  }
+}
+
 function renderCal() {
   const days = $('days');
   days.innerHTML = '';
-
   $('monthLabel').textContent = `${state.y}年${state.m + 1}月`;
 
   const first = new Date(state.y, state.m, 1);
@@ -149,18 +133,21 @@ function renderTimes() {
 }
 
 document.querySelectorAll('.choice').forEach(b => {
-  b.onclick = () => {
+  b.onclick = async () => {
     state.type = b.dataset.type;
+    state.date = '';
+    state.time = '';
 
     $('typeLabel').textContent = state.type;
     $('addrWrap').classList.toggle('show', state.type === '出張買取予約');
+    $('detail').classList.remove('open');
 
     show('s2');
-    renderCal();
+    await loadAvailability();
   };
 });
 
-$('prev').onclick = () => {
+$('prev').onclick = async () => {
   state.m--;
 
   if (state.m < 0) {
@@ -170,12 +157,12 @@ $('prev').onclick = () => {
 
   state.date = '';
   state.time = '';
-
   $('detail').classList.remove('open');
-  renderCal();
+
+  await loadAvailability();
 };
 
-$('next').onclick = () => {
+$('next').onclick = async () => {
   state.m++;
 
   if (state.m > 11) {
@@ -185,9 +172,9 @@ $('next').onclick = () => {
 
   state.date = '';
   state.time = '';
-
   $('detail').classList.remove('open');
-  renderCal();
+
+  await loadAvailability();
 };
 
 $('toConfirm').onclick = () => {
@@ -224,7 +211,6 @@ function fillConfirm() {
 $('edit').onclick = () => show('s2');
 
 $('reserve').onclick = async () => {
-
   show('loading');
 
   const steps = [
@@ -250,7 +236,6 @@ $('reserve').onclick = async () => {
   };
 
   try {
-
     const response = await fetch(GAS_URL, {
       method: 'POST',
       body: JSON.stringify(reservation)
@@ -261,6 +246,7 @@ $('reserve').onclick = async () => {
     if (!result.success) {
       alert(result.message);
       show('s2');
+      await loadAvailability();
       return;
     }
 
@@ -272,15 +258,10 @@ $('reserve').onclick = async () => {
     show('s4');
 
   } catch (e) {
-
     console.error(e);
-
     alert('予約登録に失敗しました。');
-
     show('s2');
-
   }
-
 };
 
 function fillDone() {
@@ -307,6 +288,8 @@ $('restart').onclick = () => {
     y: 2026,
     m: 6
   };
+
+  availability = {};
 
   $('detail').classList.remove('open');
 
