@@ -1,7 +1,8 @@
 const LIFF_ID = '2010522633-RyI51ikg';
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzvodEQj_qt8Li4PCrIO-phnJPnM3N4fSKSHx4pS2uMw3RtEKTS4KXZsFBw7U0pFyN62A/exec';
 
-let availability = {};
+let calendarStatus = {};
+let daySlots = {};
 
 let state = {
   type: '',
@@ -17,7 +18,10 @@ const screens = ['s1', 's2', 's3', 'loading', 's4', 'talk'];
 function show(id) {
   screens.forEach(s => $(s).classList.remove('active'));
   $(id).classList.add('active');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
 }
 
 function key(y, m, d) {
@@ -32,35 +36,76 @@ function fmt(k) {
 }
 
 function stat(k) {
-  const t = availability[k];
+  const status = calendarStatus[k];
 
-  if (!t || !t.length) {
-    return { c: 'day-ng', l: '<i class="bi bi-x-lg"></i>' };
+  if (status === 'ng') {
+    return {
+      c: 'day-ng',
+      l: '<i class="bi bi-x-lg"></i>'
+    };
   }
 
-  if (t.length <= 2) {
-    return { c: 'day-few', l: '<i class="bi bi-triangle"></i>' };
+  if (status === 'few') {
+    return {
+      c: 'day-few',
+      l: '<i class="bi bi-triangle"></i>'
+    };
   }
 
-  return { c: 'day-ok', l: '<i class="bi bi-circle"></i>' };
+  if (status === 'ok') {
+    return {
+      c: 'day-ok',
+      l: '<i class="bi bi-circle"></i>'
+    };
+  }
+
+  return {
+    c: 'day-ng',
+    l: '<i class="bi bi-x-lg"></i>'
+  };
 }
 
-async function loadAvailability() {
+async function loadCalendarStatus() {
   try {
     const start = `${state.y}-${String(state.m + 1).padStart(2, '0')}-01`;
     const type = encodeURIComponent(state.type || '来店予約');
-    const url = `${GAS_URL}?start=${start}&days=31&type=${type}`;
+    const url = `${GAS_URL}?action=calendar-status&start=${start}&days=31&type=${type}`;
 
     $('monthLabel').textContent = '読み込み中...';
     $('days').innerHTML = '';
 
     const response = await fetch(url);
-    availability = await response.json();
+    calendarStatus = await response.json();
 
     renderCal();
   } catch (error) {
     console.error(error);
-    alert('空き状況の取得に失敗しました。');
+    alert('カレンダーの取得に失敗しました。');
+  }
+}
+
+async function loadDaySlots(date) {
+  try {
+    const type = encodeURIComponent(state.type || '来店予約');
+    const url = `${GAS_URL}?action=day-slots&date=${date}&type=${type}`;
+
+    $('timeTitle').textContent = `${fmt(date)} の空き時間を取得中...`;
+    $('times').innerHTML = '';
+
+    const response = await fetch(url);
+    const result = await response.json();
+
+    if (!result.success) {
+      alert(result.message || '空き時間の取得に失敗しました。');
+      return;
+    }
+
+    daySlots[date] = result.times || [];
+    renderTimes();
+
+  } catch (error) {
+    console.error(error);
+    alert('空き時間の取得に失敗しました。');
   }
 }
 
@@ -91,18 +136,29 @@ function renderCal() {
     if (s.c === 'day-ng') {
       b.disabled = true;
     } else {
-      b.onclick = () => {
+      b.onclick = async () => {
         state.date = k;
         state.time = '';
 
         $('detail').classList.add('open');
 
         renderCal();
-        renderTimes();
 
         setTimeout(() => {
-          $('detail').scrollIntoView({ behavior: 'smooth' });
+          $('detail').scrollIntoView({
+            behavior: 'smooth'
+          });
         }, 120);
+
+        if (!daySlots[k]) {
+
+          await loadDaySlots(k);
+
+        } else {
+
+          renderTimes();
+
+        }
       };
     }
 
@@ -124,7 +180,7 @@ function renderTimes() {
 
   $('timeTitle').textContent = `${fmt(state.date)} の空き時間`;
 
-  (availability[state.date] || []).forEach(t => {
+  (daySlots[state.date] || []).forEach(t => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = `slot${state.time === t ? ' slot-selected' : ''}`;
@@ -133,7 +189,9 @@ function renderTimes() {
     b.onclick = () => {
       state.time = t;
       renderTimes();
-      document.querySelector('.form').scrollIntoView({ behavior: 'smooth' });
+      document.querySelector('.form').scrollIntoView({
+        behavior: 'smooth'
+      });
     };
 
     box.appendChild(b);
@@ -151,7 +209,7 @@ document.querySelectorAll('.choice').forEach(b => {
     $('detail').classList.remove('open');
 
     show('s2');
-    await loadAvailability();
+    await loadCalendarStatus();
   };
 });
 
@@ -165,9 +223,12 @@ $('prev').onclick = async () => {
 
   state.date = '';
   state.time = '';
+  daySlots = {};
+
   $('detail').classList.remove('open');
 
-  await loadAvailability();
+  await loadCalendarStatus();
+
 };
 
 $('next').onclick = async () => {
@@ -180,9 +241,11 @@ $('next').onclick = async () => {
 
   state.date = '';
   state.time = '';
+  daySlots = {};
+
   $('detail').classList.remove('open');
 
-  await loadAvailability();
+  await loadCalendarStatus();
 };
 
 $('toConfirm').onclick = () => {
@@ -244,7 +307,7 @@ $('reserve').onclick = async () => {
   };
 
   try {
-    const response = await fetch(GAS_URL, {
+    const response = await fetch(`${GAS_URL}?action=reserve`, {
       method: 'POST',
       body: JSON.stringify(reservation)
     });
@@ -254,7 +317,7 @@ $('reserve').onclick = async () => {
     if (!result.success) {
       alert(result.message);
       show('s2');
-      await loadAvailability();
+      await loadCalendarStatus();
       return;
     }
 
@@ -264,6 +327,9 @@ $('reserve').onclick = async () => {
 
     fillDone();
     show('s4');
+    calendarStatus = {};
+
+    daySlots = {};
 
   } catch (e) {
     console.error(e);
@@ -297,7 +363,8 @@ $('restart').onclick = () => {
     m: 6
   };
 
-  availability = {};
+  calendarStatus = {};
+  daySlots = {};
 
   $('detail').classList.remove('open');
 
@@ -327,7 +394,9 @@ async function initLiff() {
   }
 
   try {
-    await liff.init({ liffId: LIFF_ID });
+    await liff.init({
+      liffId: LIFF_ID
+    });
 
     console.log('LIFF initialized');
     console.log('LINE内で開いている:', liff.isInClient());
