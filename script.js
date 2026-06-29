@@ -316,14 +316,6 @@ $('reserve').onclick = async () => {
 
     const result = await response.json();
 
-    console.log(result);
-
-    if (result.lineResult) {
-      alert(
-        'LINE送信ステータス: ' + result.lineResult.status + '\n'
-        + 'LINE送信レスポンス: ' + result.lineResult.body
-      );
-    }
 
     if (!result.success) {
       alert(result.message);
