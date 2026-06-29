@@ -401,9 +401,6 @@ async function initLiff() {
       liffId: LIFF_ID
     });
 
-    console.log('LIFF initialized');
-    console.log('LINE内で開いている:', liff.isInClient());
-
     if (!liff.isLoggedIn()) {
       liff.login();
       return;
@@ -411,8 +408,6 @@ async function initLiff() {
 
     const profile = await liff.getProfile();
     lineUserId = profile.userId;
-
-    console.log('LINE userId:', lineUserId);
 
   } catch (error) {
     console.error('LIFF初期化エラー:', error);
