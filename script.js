@@ -3,6 +3,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbzvodEQj_qt8Li4PCrIO-ph
 
 let calendarStatus = {};
 let daySlots = {};
+let lineUserId = '';
 
 let state = {
   type: '',
@@ -303,7 +304,8 @@ $('reserve').onclick = async () => {
     name: $('name').value.trim(),
     tel: $('tel').value.trim(),
     address: $('addr').value.trim(),
-    memo: $('memo').value.trim()
+    memo: $('memo').value.trim(),
+    userId: lineUserId
   };
 
   try {
@@ -405,9 +407,14 @@ async function initLiff() {
       liff.login();
       return;
     }
+
+    const profile = await liff.getProfile();
+    lineUserId = profile.userId;
+
+    console.log('LINE userId:', lineUserId);
+
   } catch (error) {
     console.error('LIFF初期化エラー:', error);
   }
 }
-
 initLiff();
